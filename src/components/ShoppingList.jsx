@@ -44,12 +44,9 @@ export default function ShoppingList({ user, listId }) {
   const [importing, setImporting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [pendingQty, setPendingQty] = useState(null);
-  const [pendingUnit, setPendingUnit] = useState(null);
-  const [qtySheetOpen, setQtySheetOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     return onSnapshot(
@@ -111,15 +108,11 @@ export default function ShoppingList({ user, listId }) {
     }
   }
 
-  async function handleAdd(e) {
+  function handleAdd(e) {
     e.preventDefault();
-    const name = text.trim();
-    if (!name) return;
-    setText("");
+    if (!text.trim()) return;
     setInputFocused(false);
-    await addItem(name, addCategory, pendingQty, pendingUnit);
-    setPendingQty(null);
-    setPendingUnit(null);
+    setAddOpen(true);
   }
 
   async function pickSuggestion(s) {
@@ -263,8 +256,6 @@ export default function ShoppingList({ user, listId }) {
   const pct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
   const isEmpty = items.length === 0;
   const memberCount = list?.members?.length || 1;
-  const currentCat = CATEGORY_BY_ID[addCategory];
-
   // Build a unified candidate pool. Each candidate may carry an `existing`
   // reference if the same name is already on the user's list — tapping such
   // a suggestion toggles the item rather than creating a duplicate.
@@ -408,36 +399,6 @@ export default function ShoppingList({ user, listId }) {
             autoComplete="off"
             className="flex-1 min-w-0 bg-white border border-stone-200 rounded-xl px-4 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base placeholder:text-stone-400 transition"
           />
-          <button
-            type="button"
-            onClick={() => setQtySheetOpen(true)}
-            aria-label="כמות"
-            className={`h-11 px-2.5 shrink-0 rounded-xl flex items-center gap-1 text-sm font-semibold border transition active:scale-[0.97] ${
-              pendingQty
-                ? "bg-brand-100 text-brand border-brand-100"
-                : "bg-white text-stone-500 border-stone-200 hover:border-brand"
-            }`}
-          >
-            {pendingQty ? (
-              <span className="font-mono">
-                {formatQty(pendingQty, pendingUnit) || `× ${pendingQty}`}
-              </span>
-            ) : (
-              <Icon name="hash" size={16} />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            aria-label="קטגוריה"
-            className="h-11 px-3 shrink-0 bg-white border border-stone-200 rounded-xl flex items-center gap-1 text-sm font-medium text-stone-700 hover:border-brand active:scale-[0.97] transition"
-          >
-            <span className="text-lg leading-none">
-              {currentCat ? currentCat.name.split(" ")[0] : "📌"}
-            </span>
-            <Icon name="chevronDown" size={14} className="text-stone-400" />
-          </button>
-
           {showSuggestions && (
             <Suggestions
               items={suggestions}
@@ -561,17 +522,6 @@ export default function ShoppingList({ user, listId }) {
         />
       )}
 
-      {pickerOpen && (
-        <CategoryPicker
-          current={addCategory}
-          onPick={(id) => {
-            setAddCategory(id);
-            setPickerOpen(false);
-          }}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
-
       {shareOpen && (
         <ShareModal
           user={user}
@@ -580,24 +530,36 @@ export default function ShoppingList({ user, listId }) {
         />
       )}
 
-      {qtySheetOpen && (
-        <QtySheet
-          title="כמות"
-          subtitle={text || "מוצר חדש"}
-          initialQty={pendingQty}
-          initialUnit={pendingUnit}
-          onSave={(qty, unit) => {
-            setPendingQty(qty);
-            setPendingUnit(unit);
-            setQtySheetOpen(false);
+      {addOpen && (
+        <ItemFormModal
+          title="פריט חדש"
+          primaryLabel="הוסף לרשימה"
+          initial={{
+            name: text,
+            category: addCategory,
+            quantity: null,
+            unit: null,
           }}
-          onClose={() => setQtySheetOpen(false)}
+          onSave={async (fields) => {
+            await addItem(
+              fields.name,
+              fields.category,
+              fields.quantity,
+              fields.unit,
+            );
+            if (fields.category) setAddCategory(fields.category);
+            setText("");
+            setAddOpen(false);
+          }}
+          onClose={() => setAddOpen(false)}
         />
       )}
 
       {editingItem && (
-        <EditItemModal
-          item={editingItem}
+        <ItemFormModal
+          title="עריכת פריט"
+          primaryLabel="שמירה"
+          initial={editingItem}
           onSave={async (fields) => {
             await updateItemFields(editingItem, fields);
             setEditingItem(null);
@@ -870,51 +832,6 @@ function MenuItem({ icon, label, onClick, disabled, destructive }) {
   );
 }
 
-function CategoryPicker({ current, onPick, onClose }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/40 animate-[fadeIn_0.15s_ease-out]" />
-      <div
-        className="relative bg-white rounded-t-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-pop"
-        style={{ animation: "sheetUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            aria-label="סגירה"
-            className="text-stone-400 hover:text-stone-600 p-1"
-          >
-            <Icon name="close" size={20} />
-          </button>
-          <h2 className="font-bold text-stone-800">בחר קטגוריה</h2>
-        </div>
-        <div className="overflow-y-auto px-3 pb-6 pt-1">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => onPick(c.id)}
-              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-right transition ${
-                current === c.id
-                  ? "bg-brand-100 text-brand font-semibold"
-                  : "text-stone-700 hover:bg-stone-50"
-              }`}
-            >
-              <span className="text-[15px]">{c.name}</span>
-              {current === c.id && (
-                <Icon name="check" size={18} strokeWidth={3} />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ShareModal({ user, listId, onClose }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1107,82 +1024,6 @@ function highlight(text, query) {
   );
 }
 
-function QtySheet({
-  title = "כמות",
-  subtitle,
-  initialQty,
-  initialUnit,
-  onSave,
-  onClose,
-}) {
-  const [qty, setQty] = useState(initialQty || 1);
-  const [unit, setUnit] = useState(initialUnit || null);
-
-  function step(delta) {
-    setQty((q) => Math.max(0, Math.round((Number(q) || 0) + delta)));
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={onClose}
-    >
-      <div
-        className="absolute inset-0 bg-black/40"
-        style={{ animation: "fadeIn 0.15s ease-out" }}
-      />
-      <div
-        className="relative bg-white rounded-t-3xl w-full max-w-md flex flex-col shadow-pop pb-6"
-        style={{ animation: "sheetUp 0.32s cubic-bezier(0.2,0.8,0.2,1) both" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            aria-label="סגירה"
-            className="text-stone-400 hover:text-stone-600 p-1"
-          >
-            <Icon name="close" size={20} />
-          </button>
-          <div className="text-right">
-            <h2 className="font-bold text-stone-800">{title}</h2>
-            {subtitle && (
-              <p className="text-xs text-stone-500 truncate max-w-[16rem]">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <QtyControls
-          qty={qty}
-          unit={unit}
-          setQty={setQty}
-          setUnit={setUnit}
-          step={step}
-        />
-
-        <div className="px-5 pt-6 flex gap-2">
-          <button
-            type="button"
-            onClick={() => onSave(null, null)}
-            className="flex-1 bg-white border border-stone-200 text-stone-700 rounded-xl py-3 font-medium hover:bg-stone-50 transition"
-          >
-            ניקוי
-          </button>
-          <button
-            type="button"
-            onClick={() => onSave(Number(qty) || null, unit)}
-            className="flex-[2] bg-brand hover:bg-brand-light text-white rounded-xl py-3 font-semibold transition"
-          >
-            שמירה
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function QtyControls({ qty, unit, setQty, setUnit, step }) {
   return (
     <>
@@ -1240,11 +1081,18 @@ function QtyControls({ qty, unit, setQty, setUnit, step }) {
   );
 }
 
-function EditItemModal({ item, onSave, onDelete, onClose }) {
-  const [name, setName] = useState(item.name || "");
-  const [category, setCategory] = useState(item.category || null);
-  const [qty, setQty] = useState(item.quantity || 1);
-  const [unit, setUnit] = useState(item.unit || null);
+function ItemFormModal({
+  title = "עריכת פריט",
+  primaryLabel = "שמירה",
+  initial = {},
+  onSave,
+  onDelete,
+  onClose,
+}) {
+  const [name, setName] = useState(initial.name || "");
+  const [category, setCategory] = useState(initial.category || null);
+  const [qty, setQty] = useState(initial.quantity || 1);
+  const [unit, setUnit] = useState(initial.unit || null);
 
   function step(delta) {
     setQty((q) => Math.max(0, Math.round((Number(q) || 0) + delta)));
@@ -1264,7 +1112,7 @@ function EditItemModal({ item, onSave, onDelete, onClose }) {
   }
 
   function handleConfirmDelete() {
-    if (confirm(`למחוק את "${item.name}"?`)) onDelete();
+    if (confirm(`למחוק את "${initial.name}"?`)) onDelete?.();
   }
 
   return (
@@ -1289,7 +1137,7 @@ function EditItemModal({ item, onSave, onDelete, onClose }) {
           >
             <Icon name="close" size={20} />
           </button>
-          <h2 className="font-bold text-stone-800">עריכת פריט</h2>
+          <h2 className="font-bold text-stone-800">{title}</h2>
         </div>
 
         {/* Name */}
@@ -1353,9 +1201,10 @@ function EditItemModal({ item, onSave, onDelete, onClose }) {
               disabled={!name.trim()}
               className="flex-1 bg-brand hover:bg-brand-light disabled:opacity-50 text-white rounded-xl py-3 font-semibold transition"
             >
-              שמירה
+              {primaryLabel}
             </button>
           </div>
+          {onDelete && (
           <button
             type="button"
             onClick={handleConfirmDelete}
@@ -1364,6 +1213,7 @@ function EditItemModal({ item, onSave, onDelete, onClose }) {
             <Icon name="trash" size={16} />
             מחיקת הפריט
           </button>
+          )}
         </div>
       </div>
     </div>
