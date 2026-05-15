@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "./Icon";
+import EmojiPicker, { CATEGORY_EMOJIS } from "./EmojiPicker";
 
 export default function CategoryManager({
   categories,
@@ -10,7 +11,9 @@ export default function CategoryManager({
   const [items, setItems] = useState(categories);
   const [editingId, setEditingId] = useState(null);
   const [draftName, setDraftName] = useState("");
+  const [draftIcon, setDraftIcon] = useState(null);
   const [newName, setNewName] = useState("");
+  const [newIcon, setNewIcon] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -19,10 +22,12 @@ export default function CategoryManager({
   function startEdit(c) {
     setEditingId(c.id);
     setDraftName(c.name);
+    setDraftIcon(c.icon || null);
   }
   function cancelEdit() {
     setEditingId(null);
     setDraftName("");
+    setDraftIcon(null);
   }
   function commitEdit() {
     const trimmed = draftName.trim();
@@ -31,7 +36,11 @@ export default function CategoryManager({
       return;
     }
     setItems((it) =>
-      it.map((c) => (c.id === editingId ? { ...c, name: trimmed } : c)),
+      it.map((c) =>
+        c.id === editingId
+          ? { ...c, name: trimmed, icon: draftIcon || null }
+          : c,
+      ),
     );
     cancelEdit();
   }
@@ -62,8 +71,9 @@ export default function CategoryManager({
       return;
     }
     const id = `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
-    setItems((it) => [...it, { id, name: trimmed }]);
+    setItems((it) => [...it, { id, name: trimmed, icon: newIcon || null }]);
     setNewName("");
+    setNewIcon(null);
     setErr("");
   }
   function resetDefaults() {
@@ -108,27 +118,39 @@ export default function CategoryManager({
           <h2 className="font-bold text-stone-800">ניהול קטגוריות</h2>
         </div>
 
-        <form
-          onSubmit={addNew}
-          className="px-5 pt-4 flex items-center gap-2 relative"
-        >
-          <button
-            type="submit"
-            disabled={!newName.trim()}
-            aria-label="הוספת קטגוריה"
-            className="w-11 h-11 shrink-0 bg-brand-accent hover:bg-emerald-700 disabled:bg-stone-300 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center active:scale-95 transition shadow-card"
-          >
-            <Icon name="plus" size={22} strokeWidth={2.5} />
-          </button>
-          <input
-            value={newName}
-            onChange={(e) => {
-              setNewName(e.target.value);
-              if (err) setErr("");
-            }}
-            placeholder="קטגוריה חדשה, למשל: 🥕 חטיפים"
-            className="flex-1 min-w-0 bg-cream-50 border border-stone-200 rounded-xl px-4 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base placeholder:text-stone-400 transition text-right"
-          />
+        <form onSubmit={addNew} className="pt-4">
+          <div className="px-5 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={!newName.trim()}
+              aria-label="הוספת קטגוריה"
+              className="w-11 h-11 shrink-0 bg-brand-accent hover:bg-emerald-700 disabled:bg-stone-300 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center active:scale-95 transition shadow-card"
+            >
+              <Icon name="plus" size={22} strokeWidth={2.5} />
+            </button>
+            <div className="flex-1 min-w-0 bg-cream-50 border border-stone-200 rounded-xl flex items-center pr-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 transition">
+              <input
+                value={newName}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  if (err) setErr("");
+                }}
+                placeholder="קטגוריה חדשה, למשל: חטיפים"
+                className="flex-1 min-w-0 bg-transparent px-3 h-11 outline-none text-base placeholder:text-stone-400 text-right"
+              />
+              <span className="w-8 h-8 shrink-0 flex items-center justify-center text-xl text-stone-400 select-none">
+                {newIcon || "❓"}
+              </span>
+            </div>
+          </div>
+          <div className="pt-2">
+            <EmojiPicker
+              value={newIcon}
+              onChange={setNewIcon}
+              suggested={CATEGORY_EMOJIS}
+              ariaLabel="בחירת אייקון לקטגוריה חדשה"
+            />
+          </div>
         </form>
 
         {err && (
@@ -146,65 +168,86 @@ export default function CategoryManager({
               </p>
             ) : (
               items.map((c, idx) => (
-                <div
-                  key={c.id}
-                  className="flex items-center gap-1 px-3 py-2.5 bg-white"
-                >
-                  <button
-                    onClick={() => remove(c)}
-                    aria-label="מחיקת קטגוריה"
-                    className="text-stone-300 hover:text-red-600 active:scale-90 transition shrink-0 p-1.5"
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                  <div className="flex flex-col shrink-0">
+                <div key={c.id} className="bg-white">
+                  <div className="flex items-center gap-1 px-3 py-2.5">
                     <button
-                      onClick={() => move(idx, -1)}
-                      disabled={idx === 0}
-                      aria-label="הזזה למעלה"
-                      className="text-stone-300 hover:text-brand disabled:opacity-30 disabled:hover:text-stone-300 active:scale-90 transition leading-none"
+                      onClick={() => remove(c)}
+                      aria-label="מחיקת קטגוריה"
+                      className="text-stone-300 hover:text-red-600 active:scale-90 transition shrink-0 p-1.5"
                     >
-                      <Icon name="chevronDown" size={14} className="rotate-180" />
+                      <Icon name="trash" size={16} />
                     </button>
-                    <button
-                      onClick={() => move(idx, 1)}
-                      disabled={idx === items.length - 1}
-                      aria-label="הזזה למטה"
-                      className="text-stone-300 hover:text-brand disabled:opacity-30 disabled:hover:text-stone-300 active:scale-90 transition leading-none"
-                    >
-                      <Icon name="chevronDown" size={14} />
-                    </button>
+                    <div className="flex flex-col shrink-0">
+                      <button
+                        onClick={() => move(idx, -1)}
+                        disabled={idx === 0}
+                        aria-label="הזזה למעלה"
+                        className="text-stone-300 hover:text-brand disabled:opacity-30 disabled:hover:text-stone-300 active:scale-90 transition leading-none"
+                      >
+                        <Icon name="chevronDown" size={14} className="rotate-180" />
+                      </button>
+                      <button
+                        onClick={() => move(idx, 1)}
+                        disabled={idx === items.length - 1}
+                        aria-label="הזזה למטה"
+                        className="text-stone-300 hover:text-brand disabled:opacity-30 disabled:hover:text-stone-300 active:scale-90 transition leading-none"
+                      >
+                        <Icon name="chevronDown" size={14} />
+                      </button>
+                    </div>
+                    <span className="shrink-0 w-7 h-7 flex items-center justify-center text-xl select-none">
+                      {(editingId === c.id ? draftIcon : c.icon) || ""}
+                    </span>
+                    {editingId === c.id ? (
+                      <input
+                        autoFocus
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitEdit();
+                          }
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className="flex-1 min-w-0 bg-cream-50 border border-brand rounded-lg px-2 h-9 outline-none focus:ring-2 focus:ring-brand/20 text-[15px] text-right"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startEdit(c)}
+                        className="flex-1 text-right text-[15px] text-stone-800 px-2 py-1 truncate"
+                      >
+                        {c.name}
+                      </button>
+                    )}
+                    {editingId === c.id ? (
+                      <button
+                        onClick={commitEdit}
+                        aria-label="אישור עריכה"
+                        className="text-emerald-600 hover:text-emerald-700 active:scale-90 transition shrink-0 p-1.5"
+                      >
+                        <Icon name="check" size={18} strokeWidth={2.5} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(c)}
+                        aria-label="עריכת קטגוריה"
+                        className="text-stone-300 hover:text-brand active:scale-90 transition shrink-0 p-1.5"
+                      >
+                        <Icon name="pencil" size={15} />
+                      </button>
+                    )}
                   </div>
-                  {editingId === c.id ? (
-                    <input
-                      autoFocus
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      onBlur={commitEdit}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          commitEdit();
-                        }
-                        if (e.key === "Escape") cancelEdit();
-                      }}
-                      className="flex-1 min-w-0 bg-cream-50 border border-brand rounded-lg px-2 h-9 outline-none focus:ring-2 focus:ring-brand/20 text-[15px] text-right"
-                    />
-                  ) : (
-                    <button
-                      onClick={() => startEdit(c)}
-                      className="flex-1 text-right text-[15px] text-stone-800 px-2 py-1 truncate"
-                    >
-                      {c.name}
-                    </button>
+                  {editingId === c.id && (
+                    <div className="pb-3">
+                      <EmojiPicker
+                        value={draftIcon}
+                        onChange={setDraftIcon}
+                        suggested={CATEGORY_EMOJIS}
+                        ariaLabel="בחירת אייקון לקטגוריה"
+                      />
+                    </div>
                   )}
-                  <button
-                    onClick={() => startEdit(c)}
-                    aria-label="עריכת קטגוריה"
-                    className="text-stone-300 hover:text-brand active:scale-90 transition shrink-0 p-1.5"
-                  >
-                    <Icon name="pencil" size={15} />
-                  </button>
                 </div>
               ))
             )}

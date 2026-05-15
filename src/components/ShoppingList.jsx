@@ -19,6 +19,7 @@ import { CATEGORIES as DEFAULT_CATEGORIES, STARTER_ITEMS } from "../data/starter
 import { UNITS, formatQty } from "../qty";
 import Icon from "./Icon";
 import CategoryManager from "./CategoryManager";
+import EmojiPicker, { ITEM_EMOJIS } from "./EmojiPicker";
 
 const UNCATEGORIZED = "_uncat";
 
@@ -98,13 +99,20 @@ export default function ShoppingList({ user, listId }) {
     );
   }, [listId]);
 
-  async function addItem(name, category, quantity = null, unit = null) {
+  async function addItem(
+    name,
+    category,
+    quantity = null,
+    unit = null,
+    icon = null,
+  ) {
     const trimmed = name.trim();
     if (!trimmed) return;
     try {
       await addDoc(collection(db, "lists", listId, "items"), {
         name: trimmed,
         category: category || null,
+        icon: icon || null,
         quantity: quantity || null,
         unit: unit || null,
         checked: false,
@@ -122,6 +130,7 @@ export default function ShoppingList({ user, listId }) {
       await updateDoc(doc(db, "lists", listId, "items", item.id), {
         name: fields.name?.trim() || item.name,
         category: fields.category ?? item.category ?? null,
+        icon: fields.icon ?? null,
         quantity: fields.quantity || null,
         unit: fields.unit || null,
       });
@@ -144,7 +153,7 @@ export default function ShoppingList({ user, listId }) {
       await toggleItem(s.existing);
     } else {
       if (s.category) setAddCategory(s.category);
-      await addItem(s.name, s.category || addCategory);
+      await addItem(s.name, s.category || addCategory, null, null, s.icon);
     }
   }
 
@@ -275,9 +284,14 @@ export default function ShoppingList({ user, listId }) {
         return true;
       });
       const cat = categoryById[k];
+      const displayName = cat
+        ? cat.icon
+          ? `${cat.icon} ${cat.name}`
+          : cat.name
+        : "📌 פריטים";
       return {
         key: k,
-        name: cat?.name || "📌 פריטים",
+        name: displayName,
         all,
         visible,
         checkedCount: all.filter((i) => i.checked).length,
@@ -305,10 +319,12 @@ export default function ShoppingList({ user, listId }) {
       const key = it.name.trim();
       if (seen.has(key)) continue;
       seen.add(key);
+      const existing = onListByName.get(key) || null;
       out.push({
         name: it.name,
         category: it.category,
-        existing: onListByName.get(key) || null,
+        icon: existing?.icon || null,
+        existing,
       });
     }
     // Custom items the user added that aren't in the catalog
@@ -318,6 +334,7 @@ export default function ShoppingList({ user, listId }) {
       out.push({
         name: it.name,
         category: it.category || null,
+        icon: it.icon || null,
         existing: it,
       });
     }
@@ -592,6 +609,7 @@ export default function ShoppingList({ user, listId }) {
               fields.category,
               fields.quantity,
               fields.unit,
+              fields.icon,
             );
             if (fields.category) setAddCategory(fields.category);
             setText("");
@@ -697,6 +715,7 @@ function ItemRow({ item, onToggle, onEdit }) {
             : "text-stone-800"
         }`}
       >
+        {item.icon ? `${item.icon} ` : ""}
         {item.name}
       </button>
       {qtyText && (
@@ -1009,7 +1028,10 @@ function Suggestions({ items, onPick, query, categoryById }) {
     >
       {items.map((s, i) => {
         const cat = categoryById[s.category];
-        const emoji = cat ? cat.name.split(" ")[0] : "📌";
+        const emoji =
+          s.icon ||
+          cat?.icon ||
+          (cat?.name ? cat.name.split(" ")[0] : "📌");
         const onList = !!s.existing;
         const isChecked = onList && s.existing.checked;
         return (
@@ -1148,6 +1170,7 @@ function ItemFormModal({
 }) {
   const [name, setName] = useState(initial.name || "");
   const [category, setCategory] = useState(initial.category || null);
+  const [icon, setIcon] = useState(initial.icon || null);
   const [qty, setQty] = useState(initial.quantity || 1);
   const [unit, setUnit] = useState(initial.unit || null);
 
@@ -1163,6 +1186,7 @@ function ItemFormModal({
     onSave({
       name,
       category,
+      icon: icon || null,
       quantity: finalQty,
       unit: unit || null,
     });
@@ -1205,6 +1229,18 @@ function ItemFormModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full bg-cream-50 border border-stone-200 rounded-xl px-3 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base"
+          />
+        </div>
+
+        {/* Icon */}
+        <div className="pt-4">
+          <div className="px-5">
+            <Label>אייקון</Label>
+          </div>
+          <EmojiPicker
+            value={icon}
+            onChange={setIcon}
+            suggested={ITEM_EMOJIS}
           />
         </div>
 
