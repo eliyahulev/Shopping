@@ -15,12 +15,11 @@ import {
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { CATEGORIES, STARTER_ITEMS } from "../data/starterList";
+import { CATEGORIES as DEFAULT_CATEGORIES, STARTER_ITEMS } from "../data/starterList";
 import { UNITS, formatQty } from "../qty";
 import Icon from "./Icon";
+import CategoryManager from "./CategoryManager";
 
-const CATEGORY_ORDER = CATEGORIES.map((c) => c.id);
-const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 const UNCATEGORIZED = "_uncat";
 
 // Anchor for "fresh" items — only items created after this animate in.
@@ -47,6 +46,29 @@ export default function ShoppingList({ user, listId }) {
   const [inputFocused, setInputFocused] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+
+  const categories = useMemo(
+    () =>
+      Array.isArray(list?.categories) && list.categories.length > 0
+        ? list.categories
+        : DEFAULT_CATEGORIES,
+    [list?.categories],
+  );
+  const categoryById = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories],
+  );
+  const categoryOrder = useMemo(
+    () => categories.map((c) => c.id),
+    [categories],
+  );
+
+  useEffect(() => {
+    if (!categoryById[addCategory] && categories[0]) {
+      setAddCategory(categories[0].id);
+    }
+  }, [categoryById, addCategory, categories]);
 
   useEffect(() => {
     return onSnapshot(
@@ -180,6 +202,15 @@ export default function ShoppingList({ user, listId }) {
     }
   }
 
+  async function saveCategories(next) {
+    try {
+      await updateDoc(doc(db, "lists", listId), { categories: next });
+    } catch (e) {
+      setError(e.message);
+      throw e;
+    }
+  }
+
   async function importStarter() {
     if (
       !confirm(
@@ -230,7 +261,10 @@ export default function ShoppingList({ user, listId }) {
       (byCat[key] ||= []).push(it);
     }
     const orderedKeys = [
-      ...CATEGORY_ORDER.filter((k) => byCat[k]),
+      ...categoryOrder.filter((k) => byCat[k]),
+      ...Object.keys(byCat).filter(
+        (k) => k !== UNCATEGORIZED && !categoryById[k],
+      ),
       ...(byCat[UNCATEGORIZED] ? [UNCATEGORIZED] : []),
     ];
     return orderedKeys.map((k) => {
@@ -240,7 +274,7 @@ export default function ShoppingList({ user, listId }) {
         if (filter === "done") return it.checked;
         return true;
       });
-      const cat = CATEGORY_BY_ID[k];
+      const cat = categoryById[k];
       return {
         key: k,
         name: cat?.name || "📌 פריטים",
@@ -249,7 +283,7 @@ export default function ShoppingList({ user, listId }) {
         checkedCount: all.filter((i) => i.checked).length,
       };
     });
-  }, [items, filter]);
+  }, [items, filter, categoryOrder, categoryById]);
 
   const total = items.length;
   const doneCount = items.filter((i) => i.checked).length;
@@ -404,6 +438,7 @@ export default function ShoppingList({ user, listId }) {
               items={suggestions}
               onPick={pickSuggestion}
               query={text.trim()}
+              categoryById={categoryById}
             />
           )}
         </form>
@@ -516,9 +551,19 @@ export default function ShoppingList({ user, listId }) {
           doneCount={doneCount}
           onClose={() => setMenuOpen(false)}
           onShare={() => setShareOpen(true)}
+          onManageCategories={() => setCategoriesOpen(true)}
           onUncheckAll={uncheckAll}
           onClearChecked={clearChecked}
           onSignOut={() => signOut(auth)}
+        />
+      )}
+
+      {categoriesOpen && (
+        <CategoryManager
+          categories={categories}
+          defaultCategories={DEFAULT_CATEGORIES}
+          onSave={saveCategories}
+          onClose={() => setCategoriesOpen(false)}
         />
       )}
 
@@ -534,6 +579,7 @@ export default function ShoppingList({ user, listId }) {
         <ItemFormModal
           title="פריט חדש"
           primaryLabel="הוסף לרשימה"
+          categories={categories}
           initial={{
             name: text,
             category: addCategory,
@@ -559,6 +605,7 @@ export default function ShoppingList({ user, listId }) {
         <ItemFormModal
           title="עריכת פריט"
           primaryLabel="שמירה"
+          categories={categories}
           initial={editingItem}
           onSave={async (fields) => {
             await updateItemFields(editingItem, fields);
@@ -735,6 +782,7 @@ function Menu({
   doneCount,
   onClose,
   onShare,
+  onManageCategories,
   onUncheckAll,
   onClearChecked,
   onSignOut,
@@ -777,6 +825,14 @@ function Menu({
             onClick={() => {
               onClose();
               onShare();
+            }}
+          />
+          <MenuItem
+            icon="folder"
+            label="ניהול קטגוריות"
+            onClick={() => {
+              onClose();
+              onManageCategories();
             }}
           />
           <MenuItem
@@ -944,7 +1000,7 @@ function ShareModal({ user, listId, onClose }) {
   );
 }
 
-function Suggestions({ items, onPick, query }) {
+function Suggestions({ items, onPick, query, categoryById }) {
   const lower = query.toLowerCase();
   return (
     <div
@@ -952,7 +1008,7 @@ function Suggestions({ items, onPick, query }) {
       style={{ animation: "menuDrop 0.18s ease-out both" }}
     >
       {items.map((s, i) => {
-        const cat = CATEGORY_BY_ID[s.category];
+        const cat = categoryById[s.category];
         const emoji = cat ? cat.name.split(" ")[0] : "📌";
         const onList = !!s.existing;
         const isChecked = onList && s.existing.checked;
@@ -1084,6 +1140,7 @@ function QtyControls({ qty, unit, setQty, setUnit, step }) {
 function ItemFormModal({
   title = "עריכת פריט",
   primaryLabel = "שמירה",
+  categories = DEFAULT_CATEGORIES,
   initial = {},
   onSave,
   onDelete,
@@ -1154,7 +1211,7 @@ function ItemFormModal({
         <div className="px-5 pt-4">
           <Label>קטגוריה</Label>
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-5 px-5">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c.id}
                 type="button"

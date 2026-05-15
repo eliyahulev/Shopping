@@ -17,6 +17,8 @@ const PATHS = {
   pencil:
     "M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z",
   hash: "M4 9h16M4 15h16M10 3L8 21M16 3l-2 18",
+  folder:
+    "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z",
 };
 
 export default function Icon({
