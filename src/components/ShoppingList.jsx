@@ -1232,37 +1232,33 @@ function ItemFormModal({
           />
         </div>
 
-        {/* Icon */}
-        <div className="pt-4">
-          <div className="px-5">
-            <Label>אייקון</Label>
-          </div>
-          <EmojiPicker
-            value={icon}
-            onChange={setIcon}
-            suggested={ITEM_EMOJIS}
-          />
-        </div>
-
-        {/* Category */}
+        {/* Category + Icon */}
         <div className="px-5 pt-4">
-          <Label>קטגוריה</Label>
-          <div className="relative">
-            <select
-              value={category || ""}
-              onChange={(e) => setCategory(e.target.value || null)}
-              className="w-full appearance-none bg-cream-50 border border-stone-200 rounded-xl px-3 pl-9 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base text-right cursor-pointer"
-            >
-              <option value="">— ללא קטגוריה —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
-              <Icon name="chevronDown" size={16} />
-            </span>
+          <Label>קטגוריה ואייקון</Label>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <select
+                value={category || ""}
+                onChange={(e) => setCategory(e.target.value || null)}
+                className="w-full appearance-none bg-cream-50 border border-stone-200 rounded-xl px-3 pl-9 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base text-right cursor-pointer"
+              >
+                <option value="">— ללא קטגוריה —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
+                <Icon name="chevronDown" size={16} />
+              </span>
+            </div>
+            <EmojiPicker
+              value={icon}
+              onChange={setIcon}
+              suggested={ITEM_EMOJIS}
+              className="w-24 shrink-0"
+            />
           </div>
         </div>
 
