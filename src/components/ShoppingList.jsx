@@ -1182,11 +1182,11 @@ function ItemFormModal({
         style={{ animation: "fadeIn 0.15s ease-out" }}
       />
       <div
-        className="relative bg-white rounded-t-3xl w-full max-w-md flex flex-col shadow-pop pb-6 max-h-[92vh] overflow-y-auto"
+        className="relative bg-white rounded-t-3xl w-full max-w-md flex flex-col shadow-pop h-[88vh] overflow-hidden"
         style={{ animation: "sheetUp 0.32s cubic-bezier(0.2,0.8,0.2,1) both" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between sticky top-0 bg-white">
+        <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white border-b border-stone-100">
           <button
             onClick={onClose}
             aria-label="סגירה"
@@ -1197,8 +1197,9 @@ function ItemFormModal({
           <h2 className="font-bold text-stone-800">{title}</h2>
         </div>
 
+        <div className="flex-1 overflow-y-auto">
         {/* Name */}
-        <div className="px-5 pt-2">
+        <div className="px-5 pt-3">
           <Label>שם הפריט</Label>
           <input
             value={name}
@@ -1210,21 +1211,22 @@ function ItemFormModal({
         {/* Category */}
         <div className="px-5 pt-4">
           <Label>קטגוריה</Label>
-          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-5 px-5">
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCategory(c.id)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-[13px] font-medium transition active:scale-95 ${
-                  category === c.id
-                    ? "bg-brand text-white"
-                    : "bg-white border border-stone-200 text-stone-700"
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
+          <div className="relative">
+            <select
+              value={category || ""}
+              onChange={(e) => setCategory(e.target.value || null)}
+              className="w-full appearance-none bg-cream-50 border border-stone-200 rounded-xl px-3 pl-9 h-11 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 text-base text-right cursor-pointer"
+            >
+              <option value="">— ללא קטגוריה —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
+              <Icon name="chevronDown" size={16} />
+            </span>
           </div>
         </div>
 
@@ -1241,9 +1243,11 @@ function ItemFormModal({
             step={step}
           />
         </div>
+        <div className="h-4" />
+        </div>
 
         {/* Actions */}
-        <div className="px-5 pt-6 space-y-2">
+        <div className="px-5 pt-3 pb-6 space-y-2 bg-white border-t border-stone-100 shadow-[0_-4px_12px_-8px_rgba(0,0,0,0.08)]">
           <div className="flex gap-2">
             <button
               type="button"
